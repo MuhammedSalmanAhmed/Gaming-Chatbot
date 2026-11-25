@@ -2,6 +2,11 @@
 import streamlit as st
 from groq import Groq
 import re
+from guardrails import (
+    validate_input,
+    check_injection,
+    check_domain
+)
 
 def clean_response(text):
     # Replace HTML line breaks, including escaped versions
@@ -270,50 +275,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ---------------- FEATURE CARDS ----------------
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("""
-    <div class="feature-card">
-        <h4>🎯 Gaming Strategies</h4>
-        <p>Learn tips, tricks and gameplay strategies.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-    <div class="feature-card">
-        <h4>🖥️ Hardware Advice</h4>
-        <p>Get advice about gaming PCs, GPUs and accessories.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-col3, col4 = st.columns(2)
-
-with col3:
-    st.markdown("""
-    <div class="feature-card">
-        <h4>🚀 Performance</h4>
-        <p>Improve FPS and optimize gaming performance.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown("""
-    <div class="feature-card">
-        <h4>🕹️ Game Discovery</h4>
-        <p>Discover games based on your interests.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-st.divider()
-
-st.markdown("### 💬 Chat with GameMate")
-
-
 # ---------------- WELCOME MESSAGE ----------------
 
 if not st.session_state.messages:
@@ -346,6 +307,30 @@ user_input = st.chat_input("Ask GameMate anything about gaming...")
 
 if user_input:
 
+    # 1. Input validation
+    is_valid, error_message = validate_input(user_input)
+
+    if not is_valid:
+        st.warning(error_message)
+        st.stop()
+
+    # 2. Prompt injection detection
+    if check_injection(user_input):
+        st.warning(
+            "Your request contains an instruction that I cannot follow. "
+            "Let's keep our conversation gaming-related!"
+        )
+        st.stop()
+
+    # 3. Gaming domain detection
+    if not check_domain(user_input, st.session_state.messages):
+        st.info(
+            "I'm GameMate AI, and I specialize in gaming "
+            "and gaming technology. Please ask a gaming-related question!"
+        )
+        st.stop()
+
+    # Save only validated messages
     st.session_state.messages.append(
         {"role": "user", "content": user_input}
     )
